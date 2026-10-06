@@ -1,0 +1,596 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<meta name="theme-color" content="#1f6f5c">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Spend Log">
+<title>Spend Log</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Bricolage+Grotesque:opsz,wght@12..96,500;12..96,700&family=Figtree:wght@400;500;600;700&display=swap">
+<style>
+/* Layout: sibling of Plate Log — sticky header, wallet cards with today's allowance, bottom tabs, bottom sheets for entry. */
+:root{
+  --bg:#f2f5f3; --surface:#ffffff; --surface-2:#e7ede9; --ink:#15201b; --muted:#59665f; --faint:#8a958e; --line:#dbe3dd;
+  --accent:#1f6f5c; --accent-ink:#ffffff; --accent-soft:#dcefe8;
+  --good:#1f7a43; --bad:#c23b33; --bad-soft:#f8e1df; --good-soft:#dff0e4; --warn:#a86a00;
+  --w-personal:#2a78d6; --w-fuel:#eb6834; --w-home:#1baf7a;
+  --shadow:0 1px 2px rgba(21,32,27,.06),0 6px 24px rgba(21,32,27,.08);
+  --f-display:"Bricolage Grotesque","Figtree",system-ui,sans-serif;
+  --f-body:"Figtree",system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;
+  --r:14px; color-scheme:light;
+  padding-top:env(safe-area-inset-top,0px);padding-bottom:env(safe-area-inset-bottom,0px);
+}
+@media (prefers-color-scheme:dark){:root:not([data-theme="light"]){
+  --bg:#111614; --surface:#1a201d; --surface-2:#242b27; --ink:#edf2ef; --muted:#a3afa8; --faint:#77827b; --line:#2d3631;
+  --accent:#4fbf9c; --accent-ink:#0b1712; --accent-soft:#1d3a31;
+  --good:#5cc483; --bad:#f07a70; --bad-soft:#3d2321; --good-soft:#1e3326; --warn:#e0a63a;
+  --w-personal:#3987e5; --w-fuel:#d95926; --w-home:#199e70;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 24px rgba(0,0,0,.35); color-scheme:dark}}
+:root[data-theme="dark"]{
+  --bg:#111614; --surface:#1a201d; --surface-2:#242b27; --ink:#edf2ef; --muted:#a3afa8; --faint:#77827b; --line:#2d3631;
+  --accent:#4fbf9c; --accent-ink:#0b1712; --accent-soft:#1d3a31;
+  --good:#5cc483; --bad:#f07a70; --bad-soft:#3d2321; --good-soft:#1e3326; --warn:#e0a63a;
+  --w-personal:#3987e5; --w-fuel:#d95926; --w-home:#199e70;
+  --shadow:0 1px 2px rgba(0,0,0,.4),0 6px 24px rgba(0,0,0,.35); color-scheme:dark}
+*{box-sizing:border-box}
+html,body{height:100%}
+body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 var(--f-body);-webkit-tap-highlight-color:transparent}
+button,input,select,textarea{font:inherit;color:inherit}
+button{cursor:pointer}
+[hidden]{display:none!important}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+.num{font-variant-numeric:tabular-nums}
+#app{max-width:560px;margin:0 auto;padding-inline:16px;padding-block:0 calc(100px + env(safe-area-inset-bottom,0px))}
+h1,h2,h3{font-family:var(--f-display);margin:0;text-wrap:balance;letter-spacing:-.01em}
+.eyebrow{font-size:11px;letter-spacing:.08em;text-transform:uppercase;color:var(--muted);font-weight:600}
+.muted{color:var(--muted)} .faint{color:var(--faint)}
+.top{position:sticky;top:env(safe-area-inset-top,0px);z-index:5;background:var(--bg);display:flex;align-items:center;gap:8px;padding-block:14px 10px}
+.top h1{font-size:26px;line-height:1.1}
+.top .sub{font-size:13px;color:var(--muted)}
+.top .grow{flex:1;min-width:0}
+.iconbtn{width:40px;height:40px;border-radius:12px;border:1px solid var(--line);background:var(--surface);display:grid;place-items:center;flex:none}
+.iconbtn svg{width:20px;height:20px}
+.pill{border:1px solid var(--line);background:var(--surface);border-radius:999px;padding:7px 12px;font-size:13px;font-weight:600;white-space:nowrap}
+.pill.on{background:var(--ink);color:var(--bg);border-color:var(--ink)}
+.card{background:var(--surface);border-radius:var(--r);box-shadow:var(--shadow)}
+.total{padding:16px;display:grid;gap:10px}
+.total .big{font:700 34px/1 var(--f-display)}
+.total .row{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap;font-size:13px;color:var(--muted)}
+.total .row b{color:var(--ink)}
+.wallets{display:grid;gap:12px;margin-top:14px}
+.wallet{padding:14px 16px;display:grid;gap:10px;border:0;text-align:left;width:100%}
+.wallet .h{display:flex;align-items:center;gap:8px}
+.wallet .h h2{font-size:18px;flex:1}
+.dot{width:10px;height:10px;border-radius:50%;flex:none;display:inline-block}
+.wallet .today{display:flex;align-items:baseline;gap:8px;flex-wrap:wrap}
+.wallet .today .v{font:700 28px/1 var(--f-display)}
+.wallet .today .l{font-size:13px;color:var(--muted)}
+.track{position:relative;height:8px;border-radius:4px;background:var(--surface-2);overflow:visible}
+.fill{height:100%;border-radius:4px}
+.pace{position:absolute;top:-3px;width:2px;height:14px;background:var(--ink);border-radius:1px}
+.stats{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;font-size:12px;color:var(--muted)}
+.stats b{display:block;color:var(--ink);font-size:14px;font-weight:700}
+.pos{color:var(--good)!important} .neg{color:var(--bad)!important}
+.sec-t{margin:20px 2px 8px;display:flex;justify-content:space-between;align-items:center;gap:8px}
+.sec-t h2{font-size:17px}
+.list{background:var(--surface);border-radius:var(--r);overflow:hidden;box-shadow:var(--shadow)}
+.row{display:flex;gap:10px;align-items:center;padding:11px 14px;border-top:1px solid var(--line);width:100%;border-left:0;border-right:0;border-bottom:0;background:none;text-align:left}
+.row:first-child{border-top:0}
+.row .info{flex:1;min-width:0}
+.row .nm{font-weight:600;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .meta{font-size:12px;color:var(--muted);overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.row .r{text-align:right;font-weight:700;flex:none}
+.row .r small{display:block;font-weight:500;font-size:11px;color:var(--muted)}
+.empty{padding:24px 16px;text-align:center;color:var(--muted)}
+.empty h3{color:var(--ink);font-size:18px;margin-bottom:6px}
+.btn{border:0;border-radius:12px;padding:12px 16px;font-weight:700;background:var(--surface-2)}
+.btn.primary{background:var(--accent);color:var(--accent-ink)}
+.btn.dark{background:var(--ink);color:var(--bg)}
+.btn.danger{background:var(--bad-soft);color:var(--bad)}
+.btn.block{width:100%;display:block;text-align:center}
+.fab{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(74px + env(safe-area-inset-bottom,0px));z-index:6;box-shadow:0 8px 24px rgba(31,111,92,.35);padding:14px 22px;border-radius:999px;display:flex;gap:8px;align-items:center}
+.tabs{position:fixed;left:0;right:0;bottom:0;z-index:7;background:var(--surface);border-top:1px solid var(--line);padding-bottom:env(safe-area-inset-bottom,0px)}
+.tabs .in{max-width:560px;margin:0 auto;display:grid;grid-template-columns:repeat(4,1fr)}
+.tabs button{border:0;background:none;padding:9px 0 8px;display:grid;justify-items:center;gap:2px;font-size:11px;font-weight:600;color:var(--faint)}
+.tabs button svg{width:22px;height:22px}
+.tabs button.on{color:var(--accent)}
+.scrim{position:fixed;inset:0;background:rgba(10,14,12,.45);z-index:20;display:flex;align-items:flex-end;justify-content:center}
+.sheet{background:var(--bg);width:100%;max-width:560px;max-height:92%;border-radius:20px 20px 0 0;display:flex;flex-direction:column;padding-bottom:env(safe-area-inset-bottom,0px);animation:up .18s ease-out}
+@keyframes up{from{transform:translateY(30px);opacity:.6}to{transform:none;opacity:1}}
+@media (prefers-reduced-motion:reduce){.sheet{animation:none}}
+.sheet-h{display:flex;align-items:center;gap:10px;padding:14px 16px 10px}
+.sheet-h h2{font-size:20px;flex:1;min-width:0}
+.sheet-b{overflow:auto;padding:0 16px 18px;flex:1;min-height:0}
+.sheet-f{padding:10px 16px 14px;border-top:1px solid var(--line);display:flex;gap:8px}
+.sheet-f .btn{flex:1}
+.seg{display:flex;gap:6px;overflow-x:auto;padding:4px 0;scrollbar-width:none}
+.seg::-webkit-scrollbar{display:none}
+.amount{width:100%;font:700 36px/1.1 var(--f-display);text-align:center;padding:14px;border-radius:14px;border:1px solid var(--line);background:var(--surface);color:var(--ink)}
+.calc{text-align:center;font-size:14px;color:var(--muted);min-height:20px;margin-top:4px}
+.wchips{display:grid;grid-template-columns:repeat(3,1fr);gap:8px;margin-top:12px}
+.wchip{padding:12px 6px;border-radius:12px;border:2px solid var(--line);background:var(--surface);font-weight:700;display:flex;gap:6px;align-items:center;justify-content:center}
+.wchip.on{border-color:var(--ink)}
+.form{display:grid;gap:12px}
+.fgrid{display:grid;grid-template-columns:1fr 1fr;gap:10px}
+label.f{display:grid;gap:4px;font-size:12px;font-weight:600;color:var(--muted);min-width:0}
+label.f input,label.f select{padding:10px 12px;border-radius:10px;border:1px solid var(--line);background:var(--surface);font-size:16px;font-weight:500;color:var(--ink);width:100%;min-width:0}
+label.f .hint{font-weight:500;color:var(--faint)}
+.banner{border-radius:12px;padding:12px 14px;font-size:14px;background:var(--accent-soft)}
+.banner.warn{background:var(--bad-soft)}
+.chart{background:var(--surface);border-radius:var(--r);box-shadow:var(--shadow);padding:12px 8px 8px;position:relative}
+.chart svg{display:block;width:100%;height:auto}
+.chart .tip{position:absolute;pointer-events:none;background:var(--ink);color:var(--bg);font-size:12px;padding:6px 8px;border-radius:8px;white-space:nowrap;transform:translate(-50%,0)}
+.legend{display:flex;gap:14px;font-size:12px;color:var(--muted);padding:0 8px 4px}
+.legend span{display:inline-flex;align-items:center;gap:6px}
+table.t{width:100%;border-collapse:collapse;font-size:13px}
+table.t th{font-size:11px;text-transform:uppercase;letter-spacing:.06em;color:var(--muted);text-align:right;font-weight:600;padding:8px 6px}
+table.t th:first-child,table.t td:first-child{text-align:left}
+table.t td{padding:9px 6px;border-top:1px solid var(--line);text-align:right}
+table.t tr.click{cursor:pointer}
+.tbl{background:var(--surface);border-radius:var(--r);box-shadow:var(--shadow);padding:4px 8px;overflow-x:auto}
+.toast{position:fixed;left:50%;transform:translateX(-50%);bottom:calc(140px + env(safe-area-inset-bottom,0px));background:var(--ink);color:var(--bg);padding:10px 16px;border-radius:12px;z-index:40;font-size:14px;font-weight:600;max-width:90%}
+.toast button{background:none;border:0;color:var(--accent);font-weight:700;margin-left:10px}
+.daybar{display:flex;justify-content:space-between;align-items:baseline;padding:14px 4px 6px;font-weight:700}
+.daybar span{font-weight:600;color:var(--muted);font-size:13px}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<nav class="tabs" aria-label="Sections"><div class="in" id="tabs"></div></nav>
+<div id="sheet-root"></div>
+<div id="toast-root"></div>
+<script>
+(() => {
+'use strict';
+const I = {
+  today:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><rect x="3" y="6" width="18" height="13" rx="3"/><path d="M3 10h18M16 14.5h2"/></svg>',
+  hist:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>',
+  home:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"><path d="M3 11l9-7 9 7v9H3z"/><path d="M9 20v-6h6v6"/></svg>',
+  gear:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.8" stroke-linecap="round"><circle cx="12" cy="12" r="3"/><path d="M12 2v3M12 19v3M4.2 4.2l2.1 2.1M17.7 17.7l2.1 2.1M2 12h3M19 12h3M4.2 19.8l2.1-2.1M17.7 6.3l2.1-2.1"/></svg>',
+  plus:'<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M12 5v14M5 12h14"/></svg>',
+  close:'<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M6 6l12 12M18 6L6 18"/></svg>'
+};
+const WALLETS = [{k:'personal', label:'Personal', color:'var(--w-personal)'},{k:'fuel', label:'Fuel', color:'var(--w-fuel)'},{k:'home', label:'Home', color:'var(--w-home)'}];
+const WL = Object.fromEntries(WALLETS.map(w => [w.k, w]));
+const $ = (s, r=document) => r.querySelector(s);
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const pad = n => String(n).padStart(2,'0');
+const keyOf = d => d.getFullYear()+'-'+pad(d.getMonth()+1)+'-'+pad(d.getDate());
+const parseKey = k => { const [y,m,d] = k.split('-').map(Number); return new Date(y, m-1, d); };
+const addDays = (k, n) => { const d = parseKey(k); d.setDate(d.getDate()+n); return keyOf(d); };
+const daysBetween = (a, b) => Math.round((parseKey(b) - parseKey(a)) / 86400000);
+const todayKey = () => keyOf(new Date());
+const DOW = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MON = ['Jan','Feb','Mar','Apr','May','Jun','Jul','Aug','Sep','Oct','Nov','Dec'];
+const fmtShort = k => { const d = parseKey(k); return d.getDate()+' '+MON[d.getMonth()]; };
+const fmtDay = k => { const t = todayKey(); if (k === t) return 'Today'; if (k === addDays(t,-1)) return 'Yesterday'; const d = parseKey(k); return DOW[d.getDay()]+', '+d.getDate()+' '+MON[d.getMonth()]; };
+const uid = () => Math.random().toString(36).slice(2,8) + Date.now().toString(36).slice(-4);
+const money = v => { v = Math.round(v || 0); return (v < 0 ? '−' : '') + Math.abs(v).toLocaleString('en-US'); };
+const signed = v => (v > 0.5 ? '+' : '') + money(v);
+// safe arithmetic: numbers, + - * / ( )
+function calc(str) {
+  const s = String(str || '').replace(/[,\s]/g, '').replace(/×/g,'*').replace(/÷/g,'/').replace(/^=/, '');
+  if (!s) return null;
+  if (!/^[\d.+\-*/()]+$/.test(s)) return NaN;
+  let i = 0;
+  const peek = () => s[i];
+  function num() { if (peek() === '(') { i++; const v = expr(); if (peek() !== ')') throw 0; i++; return v; }
+    if (peek() === '-') { i++; return -num(); } if (peek() === '+') { i++; return num(); }
+    const m = s.slice(i).match(/^\d*\.?\d+/); if (!m) throw 0; i += m[0].length; return parseFloat(m[0]); }
+  function term() { let v = num(); while (peek() === '*' || peek() === '/') { const o = s[i++]; const r = num(); v = o === '*' ? v*r : v/r; } return v; }
+  function expr() { let v = term(); while (peek() === '+' || peek() === '-') { const o = s[i++]; const r = term(); v = o === '+' ? v+r : v-r; } return v; }
+  try { const v = expr(); if (i !== s.length || !isFinite(v)) return NaN; return Math.round(v*100)/100; } catch { return NaN; }
+}
+const isExpr = s => /[+\-*/]/.test(String(s||'').replace(/^-/, ''));
+
+// ---------- state & storage ----------
+const KEY = 'sl-data';
+const S = { tab:'today', data:{cycles:[], entries:[], settings:{currency:'EGP'}}, histCycle:null, histWallet:'all', lastWallet:'personal' };
+function load() { try { const d = JSON.parse(localStorage.getItem(KEY)); if (d && d.cycles) S.data = d; } catch {} try { const u = JSON.parse(localStorage.getItem('sl-ui') || '{}'); if (u.lastWallet) S.lastWallet = u.lastWallet; } catch {} }
+function save() { try { localStorage.setItem(KEY, JSON.stringify(S.data)); } catch { toast('Couldn’t save on this browser. Back up your data.'); } }
+const saveUi = () => { try { localStorage.setItem('sl-ui', JSON.stringify({lastWallet:S.lastWallet})); } catch {} };
+const cur = () => S.data.settings?.currency || 'EGP';
+
+// ---------- cycles ----------
+const sortedCycles = () => [...S.data.cycles].sort((a,b) => a.start.localeCompare(b.start));
+const cycleFor = k => S.data.cycles.find(c => c.start <= k && k <= c.end) || null;
+function nextCycleFrom(prev) {
+  const start = addDays(prev.end, 1);
+  const len = daysBetween(prev.start, prev.end);   // keep the same length as the previous cycle
+  const end = addDays(start, len);
+  return { id:start, start, end, budgets: JSON.parse(JSON.stringify(prev.budgets)), billsFund: prev.billsFund || 0,
+    items: (prev.items || []).map(it => ({...it, bought:0, openingPaid:0})) };
+}
+function ensureCurrent() {
+  const t = todayKey(); if (!S.data.cycles.length || cycleFor(t)) return false;
+  let made = 0, last = sortedCycles().at(-1);
+  if (last.start > t) return false;
+  while (last.end < t && made < 24) { const n = nextCycleFrom(last); S.data.cycles.push(n); last = n; made++; }
+  if (made) { save(); setTimeout(() => toast(`New cycle started: ${fmtShort(last.start)} – ${fmtShort(last.end)}. Budgets carried over.`), 400); }
+  return made > 0;
+}
+function cycleDays(c) { return daysBetween(c.start, c.end) + 1; }
+function entriesIn(c, wallet) { return S.data.entries.filter(e => e.date >= c.start && e.date <= c.end && (!wallet || e.wallet === wallet)); }
+// metrics for one wallet in one cycle, as of a date
+function metrics(c, wallet, asOf = todayKey()) {
+  const N = cycleDays(c), B = +c.budgets?.[wallet]?.value || 0;
+  const at = asOf < c.start ? c.start : asOf > c.end ? c.end : asOf;
+  const past = asOf > c.end;
+  const elapsed = daysBetween(c.start, at) + 1, daysLeft = Math.max(1, N - elapsed + 1);
+  let before = 0, today = 0, off = 0;
+  for (const e of entriesIn(c, wallet)) {
+    if (wallet === 'home' && e.itemId) { off += e.amount; continue; }  // off-balance list/bill purchases
+    if (e.date < at) before += e.amount; else if (e.date === at) today += e.amount; else if (past) before += e.amount;
+  }
+  const spent = before + today, daily = B / N, pace = daily * elapsed;
+  const allowToday = (B - before) / daysLeft;
+  return { N, B, elapsed, daysLeft, spent, today, off, daily, pace, buffer: pace - spent, remaining: B - spent,
+    allowToday, leftToday: allowToday - today, fromTomorrow: daysLeft > 1 ? (B - spent) / (daysLeft - 1) : 0,
+    trend: spent / elapsed, projected: spent / elapsed * N, past };
+}
+
+// ---------- render ----------
+function render() {
+  renderTabs();
+  const a = $('#app');
+  if (!S.data.cycles.length) { a.innerHTML = viewWelcome(); return; }
+  a.innerHTML = S.tab === 'today' ? viewToday() : S.tab === 'history' ? viewHistory() : S.tab === 'home' ? viewHome() : viewSettings();
+  if (S.tab === 'history') wireChart();
+}
+function renderTabs() {
+  const t = [['today','Today',I.today],['history','History',I.hist],['home','Home list',I.home],['settings','Budgets',I.gear]];
+  $('#tabs').innerHTML = t.map(([id,l,ic]) => `<button data-act="tab" data-v="${id}" class="${S.tab===id?'on':''}">${ic}<span>${l}</span></button>`).join('');
+}
+function viewWelcome() {
+  const t = todayKey(), d = parseKey(t);
+  const st = d.getDate() >= 24 ? keyOf(new Date(d.getFullYear(), d.getMonth(), 24)) : keyOf(new Date(d.getFullYear(), d.getMonth()-1, 24));
+  return `<header class="top"><div class="grow"><h1>Spend Log</h1><div class="sub">Daily budgets for Personal, Fuel and Home</div></div></header>
+  <div class="card empty" style="text-align:left;display:grid;gap:12px">
+    <h3>Get started</h3>
+    <p style="margin:0">Restore your backup file to bring in your cycles, budgets and past expenses. Or set up a fresh budget cycle.</p>
+    <button class="btn dark" data-act="restore">Restore from backup</button>
+    <form id="setup-form" class="form" style="border-top:1px solid var(--line);padding-top:12px">
+      <div class="fgrid"><label class="f">Cycle starts<input id="su-start" type="date" value="${st}"></label><label class="f">Cycle ends<input id="su-end" type="date" value="${addDays(keyOf(new Date(parseKey(st).getFullYear(), parseKey(st).getMonth()+1, parseKey(st).getDate())), -1)}"></label></div>
+      ${WALLETS.map(w => `<label class="f">${w.label} budget for the cycle <span class="hint">· you can type 10000+600+2000</span><input id="su-${w.k}" inputmode="decimal" placeholder="0"></label>`).join('')}
+      <button class="btn primary" type="submit">Start tracking</button>
+    </form>
+  </div>`;
+}
+function walletCard(c, w) {
+  const m = metrics(c, w.k);
+  const pct = m.B ? Math.min(100, Math.max(0, m.spent / m.B * 100)) : 0, pacePct = Math.min(100, m.elapsed / m.N * 100);
+  const over = m.spent > m.pace;
+  return `<button class="card wallet" data-act="add" data-v="${w.k}" aria-label="Add a ${w.label} expense">
+    <div class="h"><span class="dot" style="background:${w.color}"></span><h2>${w.label}</h2><span class="muted num" style="font-size:13px">${money(m.spent)} / ${money(m.B)}</span></div>
+    <div class="today"><span class="v num ${m.leftToday < 0 ? 'neg' : ''}">${money(m.leftToday)}</span><span class="l">left today of ${money(m.allowToday)}${m.today ? ` · spent ${money(m.today)}` : ''}</span></div>
+    <div class="track" title="Spent vs budget; the line marks where you should be today"><div class="fill" style="width:${pct}%;background:${over ? 'var(--bad)' : w.color}"></div><div class="pace" style="left:calc(${pacePct}% - 1px)"></div></div>
+    <div class="stats"><div>Buffer<b class="num ${m.buffer >= 0 ? 'pos' : 'neg'}">${signed(m.buffer)}</b></div><div>Per day after today<b class="num">${money(m.fromTomorrow)}</b></div><div>On track for<b class="num ${m.projected > m.B ? 'neg' : ''}">${money(m.projected)}</b></div></div>
+    ${w.k === 'home' && m.off ? `<div class="muted" style="font-size:12px">+ ${money(m.off)} on the shopping list and bills (tracked in Home list)</div>` : ''}
+  </button>`;
+}
+function entryRow(e) {
+  const w = WL[e.wallet] || WALLETS[0];
+  const item = e.itemId ? itemName(e.itemId) : '';
+  return `<button class="row" data-act="edit" data-v="${e.id}"><span class="dot" style="background:${w.color}"></span><div class="info"><div class="nm">${esc(e.note || item || w.label)}</div><div class="meta">${[e.note || item ? w.label : '', item && e.note ? esc(item) : '', e.expr ? esc(e.expr) : ''].filter(Boolean).join(' · ') || 'No note'}</div></div><div class="r num ${e.amount < 0 ? 'pos' : ''}">${e.amount < 0 ? '+' + money(-e.amount) : money(e.amount)}</div></button>`;
+}
+function itemName(id) { for (const c of S.data.cycles) { const it = (c.items||[]).find(i => i.id === id); if (it) return it.name; } return ''; }
+function viewToday() {
+  const t = todayKey(), c = cycleFor(t);
+  if (!c) return `<header class="top"><div class="grow"><h1>Today</h1></div></header><div class="card empty"><h3>No budget cycle covers today</h3><p>Set the dates of your current cycle in Budgets.</p><button class="btn primary" data-act="tab" data-v="settings">Open Budgets</button></div>`;
+  const ms = WALLETS.map(w => metrics(c, w.k));
+  const tot = k => ms.reduce((s, m) => s + m[k], 0);
+  const todays = S.data.entries.filter(e => e.date === t).sort((a,b) => (b.ts||0) - (a.ts||0));
+  const m0 = ms[0];
+  return `<header class="top"><div class="grow"><h1>Today</h1><div class="sub">${fmtDay(t) === 'Today' ? DOW[parseKey(t).getDay()] + ', ' + fmtShort(t) : ''} · day ${m0.elapsed} of ${m0.N} (${fmtShort(c.start)} – ${fmtShort(c.end)})</div></div></header>
+  <section class="card total"><div class="eyebrow">Left to spend this cycle</div>
+    <div class="big num ${tot('remaining') < 0 ? 'neg' : ''}">${money(tot('remaining'))} <span style="font-size:15px;font-weight:600" class="muted">${cur()}</span></div>
+    <div class="row"><span>Spent <b class="num">${money(tot('spent'))}</b> of <b class="num">${money(tot('B'))}</b></span><span>Buffer <b class="num ${tot('buffer') >= 0 ? 'pos' : 'neg'}">${signed(tot('buffer'))}</b></span><span><b class="num">${m0.daysLeft}</b> days left incl. today</span></div>
+  </section>
+  <div class="wallets">${WALLETS.map(w => walletCard(c, w)).join('')}</div>
+  <div class="sec-t"><h2>Today’s expenses</h2><span class="muted num" style="font-size:13px">${todays.length ? money(todays.reduce((s,e)=>s+e.amount,0)) + ' ' + cur() : ''}</span></div>
+  ${todays.length ? `<div class="list">${todays.map(entryRow).join('')}</div>` : `<div class="card empty">Nothing logged today. Tap a wallet or Add expense.</div>`}
+  <button class="btn primary fab" data-act="add">${I.plus}Add expense</button>`;
+}
+
+// ---------- history ----------
+function viewHistory() {
+  const cycles = sortedCycles().reverse();
+  const c = S.data.cycles.find(x => x.id === S.histCycle) || cycleFor(todayKey()) || cycles[0];
+  S.histCycle = c.id;
+  const wsel = S.histWallet;
+  const rows = WALLETS.map(w => ({w, m: metrics(c, w.k)}));
+  let h = `<header class="top"><div class="grow"><h1>History</h1><div class="sub">${fmtShort(c.start)} – ${fmtShort(c.end)} · ${cycleDays(c)} days</div></div></header>
+  <div class="seg">${cycles.map(x => `<button class="pill ${x.id===c.id?'on':''}" data-act="hcycle" data-v="${x.id}">${MON[parseKey(x.start).getMonth()]} ${parseKey(x.start).getDate()} cycle</button>`).join('')}</div>
+  <div class="tbl" style="margin-top:10px"><table class="t"><thead><tr><th>Wallet</th><th>Budget</th><th>Spent</th><th>${rows[0].m.past ? 'Saved' : 'Buffer'}</th></tr></thead><tbody>
+  ${rows.map(({w,m}) => { const s = m.past ? m.B - m.spent : m.buffer; return `<tr><td><span class="dot" style="background:${w.color};margin-right:6px"></span>${w.label}</td><td class="num">${money(m.B)}</td><td class="num">${money(m.spent)}</td><td class="num ${s>=0?'pos':'neg'}">${signed(s)}</td></tr>`; }).join('')}
+  ${(() => { const B = rows.reduce((s,r)=>s+r.m.B,0), sp = rows.reduce((s,r)=>s+r.m.spent,0), sv = rows.reduce((s,r)=>s+(r.m.past ? r.m.B-r.m.spent : r.m.buffer),0); return `<tr><td><b>Total</b></td><td class="num"><b>${money(B)}</b></td><td class="num"><b>${money(sp)}</b></td><td class="num ${sv>=0?'pos':'neg'}"><b>${signed(sv)}</b></td></tr>`; })()}
+  </tbody></table></div>`;
+  h += `<div class="sec-t"><h2>Spending through the cycle</h2></div>
+  <div class="seg" style="padding-top:0">${[{k:'all',label:'All'}].concat(WALLETS).map(w => `<button class="pill ${wsel===w.k?'on':''}" data-act="hwallet" data-v="${w.k}">${w.label}</button>`).join('')}</div>
+  <div class="chart" id="burn">${burnChart(c, wsel)}<div class="tip" hidden></div></div>`;
+  // days
+  const ents = entriesIn(c, wsel === 'all' ? null : wsel).sort((a,b) => b.date.localeCompare(a.date) || (b.ts||0)-(a.ts||0));
+  const byDay = new Map(); ents.forEach(e => { if (!byDay.has(e.date)) byDay.set(e.date, []); byDay.get(e.date).push(e); });
+  h += `<div class="sec-t"><h2>Expenses</h2><span class="muted" style="font-size:12px">tap to edit</span></div>`;
+  h += byDay.size ? [...byDay.entries()].map(([d, es]) => `<div class="daybar"><div>${fmtDay(d)}</div><span class="num">${money(es.reduce((s,e)=>s+e.amount,0))}</span></div><div class="list">${es.map(entryRow).join('')}</div>`).join('') : `<div class="card empty">No expenses in this cycle.</div>`;
+  // all cycles
+  h += `<div class="sec-t"><h2>All cycles</h2></div><div class="tbl"><table class="t"><thead><tr><th>Cycle</th>${WALLETS.map(w=>`<th>${w.label}</th>`).join('')}<th>Saved</th></tr></thead><tbody>
+  ${cycles.map(x => { const ms = WALLETS.map(w => metrics(x, w.k)); const sv = ms.reduce((s,m)=>s+(m.past ? m.B-m.spent : m.buffer),0);
+    return `<tr class="click" data-act="hcycle" data-v="${x.id}"><td>${fmtShort(x.start)}</td>${ms.map(m=>`<td class="num ${m.B && m.spent>m.B?'neg':''}">${money(m.spent)}</td>`).join('')}<td class="num ${sv>=0?'pos':'neg'}">${signed(sv)}</td></tr>`; }).join('')}
+  </tbody></table></div><p class="muted" style="font-size:12px;margin:8px 2px">Red means spent more than that wallet’s budget. Saved uses the budget minus spending for finished cycles, and today’s buffer for the current one.</p>`;
+  return h;
+}
+function burnChart(c, wsel) {
+  const N = cycleDays(c), keys = wsel === 'all' ? WALLETS.map(w => w.k) : [wsel];
+  const B = keys.reduce((s,k) => s + (+c.budgets?.[k]?.value || 0), 0);
+  const per = new Array(N).fill(0);
+  for (const e of entriesIn(c)) { if (!keys.includes(e.wallet) || (e.wallet === 'home' && e.itemId)) continue; per[daysBetween(c.start, e.date)] += e.amount; }
+  const t = todayKey(), lastIdx = t > c.end ? N-1 : Math.max(0, daysBetween(c.start, t));
+  const cum = []; let run = 0; for (let i = 0; i < N; i++) { run += per[i]; cum.push(run); }
+  const W = 340, H = 180, L = 40, R = 10, T = 10, Bm = 22;
+  const max = Math.max(B, ...cum.slice(0, lastIdx+1), 1) * 1.08;
+  const step = niceStep(max); const top = Math.ceil(max/step)*step;
+  const x = i => L + (W-L-R) * (N <= 1 ? 0 : i/(N-1)), y = v => T + (H-T-Bm) * (1 - v/top);
+  let s = `<svg viewBox="0 0 ${W} ${H}" role="img" aria-label="Cumulative spending versus budget pace">`;
+  for (let v = 0; v <= top + 1e-9; v += step) s += `<line x1="${L}" x2="${W-R}" y1="${y(v)}" y2="${y(v)}" stroke="var(--line)"/><text x="${L-6}" y="${y(v)+3.5}" text-anchor="end" font-size="10" fill="var(--faint)">${v>=1000 ? (v/1000)+'k' : v}</text>`;
+  [0, Math.floor((N-1)/2), N-1].forEach(i => s += `<text x="${x(i)}" y="${H-6}" text-anchor="${i===0?'start':i===N-1?'end':'middle'}" font-size="10" fill="var(--faint)">${fmtShort(addDays(c.start, i))}</text>`);
+  if (B) s += `<line x1="${x(0)}" y1="${y(B/N)}" x2="${x(N-1)}" y2="${y(B)}" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="5 4"/>`;
+  const pts = cum.slice(0, lastIdx+1).map((v,i) => `${x(i)},${y(Math.max(0,v))}`).join(' ');
+  const col = wsel === 'all' ? 'var(--accent)' : WL[wsel].color;
+  s += `<polygon points="${x(0)},${y(0)} ${pts} ${x(lastIdx)},${y(0)}" fill="${col}" opacity=".12"/>`;
+  s += `<polyline points="${pts}" fill="none" stroke="${col}" stroke-width="2" stroke-linejoin="round"/>`;
+  s += `<circle cx="${x(lastIdx)}" cy="${y(Math.max(0,cum[lastIdx]))}" r="4" fill="${col}" stroke="var(--surface)" stroke-width="2"/>`;
+  for (let i = 0; i < N; i++) s += `<rect x="${x(i) - (W-L-R)/N/2}" y="${T}" width="${(W-L-R)/N}" height="${H-T-Bm}" fill="transparent" data-i="${i}"/>`;
+  s += `</svg><div class="legend"><span><svg width="18" height="4"><line x1="0" y1="2" x2="18" y2="2" stroke="${col}" stroke-width="2"/></svg>Spent so far</span><span><svg width="18" height="4"><line x1="0" y1="2" x2="18" y2="2" stroke="var(--muted)" stroke-width="1.5" stroke-dasharray="4 3"/></svg>Budget pace</span></div>`;
+  S._burn = {c, N, per, cum, B, lastIdx};
+  return s;
+}
+function niceStep(max) { const raw = max / 4, p = Math.pow(10, Math.floor(Math.log10(raw))); const n = raw / p; return (n <= 1 ? 1 : n <= 2 ? 2 : n <= 5 ? 5 : 10) * p; }
+function wireChart() {
+  const c = $('#burn'); if (!c) return; const tip = $('.tip', c);
+  const show = e => { const i = e.target?.dataset?.i; if (i == null) { tip.hidden = true; return; } const b = S._burn, k = +i, d = addDays(b.c.start, k);
+    const box = c.getBoundingClientRect(), tb = e.target.getBoundingClientRect();
+    tip.textContent = `${fmtShort(d)} · spent ${money(b.per[k])} · total ${k <= b.lastIdx ? money(b.cum[k]) : '—'} · pace ${money(b.B/b.N*(k+1))}`;
+    tip.style.left = Math.min(box.width-110, Math.max(110, tb.left - box.left + tb.width/2)) + 'px'; tip.style.top = '6px'; tip.hidden = false; };
+  c.addEventListener('pointermove', show); c.addEventListener('pointerdown', show); c.addEventListener('pointerleave', () => tip.hidden = true);
+}
+
+// ---------- home list ----------
+function itemPaid(c, it) { return (+it.openingPaid || 0) + entriesIn(c, 'home').filter(e => e.itemId === it.id).reduce((s,e) => s + e.amount, 0); }
+function viewHome() {
+  const c = cycleFor(todayKey()) || sortedCycles().at(-1);
+  const items = c.items || [];
+  const list = items.filter(i => i.group !== 'bills'), bills = items.filter(i => i.group === 'bills');
+  const lp = list.reduce((s,i)=>s+(+i.planned||0),0), lpaid = list.reduce((s,i)=>s+itemPaid(c,i),0);
+  const bpaid = bills.reduce((s,i)=>s+itemPaid(c,i),0), fund = +c.billsFund || 0;
+  const row = it => { const paid = itemPaid(c, it), bal = (+it.planned || 0) - paid;
+    return `<button class="row" data-act="edititem" data-v="${it.id}"><div class="info"><div class="nm">${esc(it.name)}</div><div class="meta num">${it.group === 'bills' ? 'Paid ' + money(paid) : `${it.qty ? `bought ${it.bought||0} of ${it.qty} · ` : ''}planned ${money(it.planned)} · paid ${money(paid)}`}</div></div>
+      ${it.group === 'bills' ? `<div class="r num">${money(paid)}</div>` : `<div class="r num ${bal < 0 ? 'neg' : ''}">${money(bal)}<small>left</small></div>`}</button>`; };
+  return `<header class="top"><div class="grow"><h1>Home list</h1><div class="sub">Planned shopping and bills for ${fmtShort(c.start)} – ${fmtShort(c.end)}</div></div></header>
+  <div class="banner">These are tracked apart from Home’s daily budget, like the off-balance items in your sheet. When you add a Home expense, pick the item and it’s counted here.</div>
+  <div class="sec-t"><h2>Shopping list</h2><span class="muted num" style="font-size:13px">${money(lpaid)} of ${money(lp)} paid</span></div>
+  ${list.length ? `<div class="list">${list.map(row).join('')}</div>` : `<div class="card empty">No planned items yet.</div>`}
+  <button class="btn block" style="margin-top:8px" data-act="newitem" data-v="list">Add item</button>
+  <div class="sec-t"><h2>Bills</h2><span class="muted num" style="font-size:13px">${money(bpaid)} paid${fund ? ` · ${money(fund - bpaid)} left of ${money(fund)}` : ''}</span></div>
+  ${bills.length ? `<div class="list">${bills.map(row).join('')}</div>` : `<div class="card empty">No bills yet.</div>`}
+  <div style="display:flex;gap:8px;margin-top:8px"><button class="btn" style="flex:1" data-act="newitem" data-v="bills">Add bill</button><button class="btn" style="flex:1" data-act="fund">Bills fund: ${money(fund)}</button></div>
+  <p class="muted" style="font-size:12px;margin:10px 2px">A new cycle copies this list with everything reset to unpaid.</p>`;
+}
+
+// ---------- settings ----------
+function viewSettings() {
+  const c = cycleFor(todayKey()) || sortedCycles().at(-1);
+  return `<header class="top"><div class="grow"><h1>Budgets</h1><div class="sub">Current cycle and your data</div></div></header>
+  <form class="card form" style="padding:16px" id="cycle-form">
+    <h2 style="font-size:17px">This cycle</h2>
+    <div class="fgrid"><label class="f">Starts<input id="cy-start" type="date" value="${c.start}"></label><label class="f">Ends<input id="cy-end" type="date" value="${c.end}"></label></div>
+    ${WALLETS.map(w => { const b = c.budgets?.[w.k] || {}; return `<label class="f"><span><span class="dot" style="background:${w.color};margin-right:6px"></span>${w.label} budget <span class="hint" id="cyv-${w.k}">${isExpr(b.expr) ? '= ' + money(b.value) : ''}</span></span><input id="cy-${w.k}" inputmode="decimal" value="${esc(b.expr ?? b.value ?? '')}" data-calc="cyv-${w.k}"></label>`; }).join('')}
+    <p class="muted" style="font-size:13px;margin:0">Type the parts of a budget the way you do in Excel, e.g. 10000+600+2000+1000+40. The daily allowance is the budget divided by the days in the cycle (${cycleDays(c)}).</p>
+    <button class="btn primary" type="submit">Save budgets</button>
+  </form>
+  <div class="card" style="padding:16px;margin-top:14px;display:grid;gap:10px">
+    <h2 style="font-size:17px">Payday came early?</h2>
+    <p class="muted" style="margin:0;font-size:14px">End this cycle yesterday and start a new one today with the same budgets and Home list.</p>
+    <button class="btn" data-act="newcycle">Start a new cycle today</button>
+  </div>
+  <div class="card" style="padding:16px;margin-top:14px;display:grid;gap:10px">
+    <h2 style="font-size:17px">Your data</h2>
+    <p class="muted" style="margin:0;font-size:14px">${S.data.entries.length} expenses · ${S.data.cycles.length} cycles · saved on this phone/browser only</p>
+    <div style="display:flex;gap:8px;flex-wrap:wrap"><button class="btn dark" data-act="backup">Back up everything</button><button class="btn" data-act="restore">Restore from backup</button><button class="btn" data-act="csv">Export CSV</button></div>
+    <p class="muted" style="margin:0;font-size:13px">Back up about once a week. Clearing your browser data deletes your log.</p>
+  </div>
+  <div class="card" style="padding:16px;margin-top:14px">
+    <h2 style="font-size:17px;margin-bottom:6px">Quick tips</h2>
+    <ul class="muted" style="margin:0;padding-left:18px;font-size:14px;display:grid;gap:6px">
+      <li>Tap a wallet card to log straight into it.</li>
+      <li>In the amount you can type sums like 30+20-10, the same as your sheet.</li>
+      <li>Switch to Refund to log money coming back (it’s saved as a negative).</li>
+      <li>Buffer is how far ahead (+) or behind (−) your daily budget you are so far this cycle.</li>
+    </ul>
+  </div>`;
+}
+
+// ---------- sheets ----------
+function openSheet(title, body, foot = '') {
+  $('#sheet-root').innerHTML = `<div class="scrim" data-act="scrim"><div class="sheet" role="dialog" aria-modal="true" aria-label="${esc(title)}"><div class="sheet-h"><h2>${esc(title)}</h2><button class="iconbtn" data-act="close" aria-label="Close">${I.close}</button></div><div class="sheet-b" id="sheet-b">${body}</div>${foot ? `<div class="sheet-f">${foot}</div>` : ''}</div></div>`;
+}
+const closeSheet = () => { $('#sheet-root').innerHTML = ''; };
+function toast(msg, action) {
+  const id = uid();
+  $('#toast-root').innerHTML = `<div class="toast" role="status" data-id="${id}">${esc(msg)}${action ? `<button data-act="toastact">${esc(action.label)}</button>` : ''}</div>`;
+  S._toastAct = action?.fn; setTimeout(() => { const t = $(`.toast[data-id="${id}"]`); if (t) t.remove(); }, action ? 5000 : 2800);
+}
+function recentNotes(wallet) {
+  const cnt = new Map();
+  S.data.entries.filter(e => e.wallet === wallet && e.note).slice(-300).forEach(e => { const n = e.note.trim(); cnt.set(n, (cnt.get(n)||0) + 1); });
+  return [...cnt.entries()].sort((a,b) => b[1]-a[1]).slice(0, 8).map(x => x[0]);
+}
+function openEntry(entry, wallet) {
+  const e = entry ? {...entry} : {id:null, date: todayKey(), wallet: wallet || S.lastWallet, amount:null, note:'', itemId:null};
+  S._form = {...e, refund: e.amount != null && e.amount < 0};
+  const body = `<input id="en-amt" class="amount num" inputmode="decimal" placeholder="0" autocomplete="off" value="${e.amount != null ? esc(e.expr || Math.abs(e.amount)) : ''}" aria-label="Amount">
+    <div class="calc num" id="en-calc"></div>
+    <div class="seg" style="justify-content:center"><button class="pill" data-act="fsign" data-v="0">Expense</button><button class="pill" data-act="fsign" data-v="1">Refund / money in</button></div>
+    <div class="wchips">${WALLETS.map(w => `<button class="wchip" data-act="fwallet" data-v="${w.k}"><span class="dot" style="background:${w.color}"></span>${w.label}</button>`).join('')}</div>
+    <div id="en-items"></div>
+    <label class="f" style="margin-top:12px">Note<input id="en-note" value="${esc(e.note || '')}" placeholder="e.g. Uber, Super market" autocomplete="off"></label>
+    <div class="seg" id="en-notes"></div>
+    <div class="fgrid" style="margin-top:6px"><label class="f">Date<input id="en-date" type="date" value="${e.date}"></label><div style="display:flex;gap:6px;align-items:end"><button class="pill" data-act="fdate" data-v="0">Today</button><button class="pill" data-act="fdate" data-v="-1">Yesterday</button></div></div>
+    ${e.id ? `<button class="btn danger block" style="margin-top:14px" data-act="delentry">Delete expense</button>` : ''}`;
+  openSheet(e.id ? 'Edit expense' : 'Add expense', body, `<button class="btn primary" data-act="saveentry">${e.id ? 'Save' : 'Add'}</button>`);
+  $('#en-amt').addEventListener('input', updCalc); updCalc(); syncForm();
+  if (!e.id) setTimeout(() => $('#en-amt').focus(), 80);
+}
+function updCalc() { const raw = $('#en-amt').value; const v = calc(raw); $('#en-calc').textContent = raw && isExpr(raw) ? (isNaN(v) || v == null ? 'Check the sum' : '= ' + money(v) + ' ' + cur()) : ''; }
+function syncForm() {
+  const f = S._form;
+  document.querySelectorAll('[data-act=fsign]').forEach(b => b.classList.toggle('on', (b.dataset.v === '1') === f.refund));
+  document.querySelectorAll('[data-act=fwallet]').forEach(b => b.classList.toggle('on', b.dataset.v === f.wallet));
+  const c = cycleFor($('#en-date')?.value || f.date) || cycleFor(todayKey());
+  const items = f.wallet === 'home' && c ? (c.items || []) : [];
+  $('#en-items').innerHTML = items.length ? `<div class="eyebrow" style="margin-top:12px">Counts toward</div><div class="seg"><button class="pill ${!f.itemId?'on':''}" data-act="fitem" data-v="">Daily Home budget</button>${items.map(i => `<button class="pill ${f.itemId===i.id?'on':''}" data-act="fitem" data-v="${i.id}">${esc(i.name)}</button>`).join('')}</div>` : '';
+  $('#en-notes').innerHTML = recentNotes(f.wallet).map(n => `<button class="pill" style="font-weight:500" data-act="fnote" data-v="${esc(n)}">${esc(n)}</button>`).join('');
+}
+function saveEntry() {
+  const f = S._form, raw = $('#en-amt').value.trim(), v = calc(raw);
+  if (v == null || isNaN(v) || v === 0) { toast('Enter an amount, like 250 or 30+20.'); return; }
+  const date = $('#en-date').value || todayKey();
+  const amount = f.refund ? -Math.abs(v) : (v < 0 ? v : v);
+  const e = {id: f.id || 'e' + uid(), date, wallet: f.wallet, amount, ts: f.ts || Date.now()};
+  const note = $('#en-note').value.trim(); if (note) e.note = note;
+  if (isExpr(raw)) e.expr = raw.replace(/\s/g,'');
+  if (f.wallet === 'home' && f.itemId) e.itemId = f.itemId;
+  if (!cycleFor(date)) { toast('That date isn’t in any budget cycle. Adjust the cycle dates in Budgets.'); }
+  const i = S.data.entries.findIndex(x => x.id === e.id);
+  if (i >= 0) S.data.entries[i] = e; else S.data.entries.push(e);
+  S.lastWallet = f.wallet; saveUi(); save(); closeSheet(); render();
+  toast(`${i >= 0 ? 'Saved' : 'Added'} ${money(Math.abs(amount))} ${cur()} · ${WL[f.wallet].label}`);
+}
+function openItem(it, group) {
+  const c = cycleFor(todayKey()) || sortedCycles().at(-1);
+  const x = it || {id:null, group, name:'', qty:'', planned:'', bought:0, openingPaid:0};
+  const bill = x.group === 'bills';
+  S._item = {id: x.id, group: x.group, cycle: c.id};
+  const body = `<form class="form" id="item-form">
+    <label class="f">Name<input id="it-name" value="${esc(x.name)}" required></label>
+    ${bill ? `<label class="f">Expected amount <span class="hint">optional</span><input id="it-planned" inputmode="decimal" value="${esc(x.planned ?? '')}"></label>` :
+      `<div class="fgrid"><label class="f">Planned quantity<input id="it-qty" inputmode="decimal" value="${esc(x.qty ?? '')}"></label><label class="f">Planned cost<input id="it-planned" inputmode="decimal" value="${esc(x.planned ?? '')}" placeholder="e.g. 5*20*4"></label></div>
+      <label class="f">Bought so far<input id="it-bought" inputmode="decimal" value="${esc(x.bought ?? 0)}"></label>`}
+    <label class="f">Paid before using the app <span class="hint">· later payments come from tagged Home expenses</span><input id="it-open" inputmode="decimal" value="${esc(x.openingPaid ?? 0)}"></label>
+    ${x.id ? `<p class="muted" style="margin:0;font-size:13px">Paid in total: <b class="num">${money(itemPaid(c, x))}</b></p><button type="button" class="btn danger" data-act="delitem">Remove from this cycle’s list</button>` : ''}
+  </form>`;
+  openSheet(x.id ? (bill ? 'Edit bill' : 'Edit item') : (bill ? 'Add bill' : 'Add item'), body, `<button class="btn primary" data-act="saveitem">Save</button>`);
+}
+function saveItem() {
+  const c = S.data.cycles.find(x => x.id === S._item.cycle); if (!c) return;
+  const name = $('#it-name').value.trim(); if (!name) { toast('Give it a name.'); return; }
+  const n = id => { const el = $('#' + id); if (!el) return null; const v = calc(el.value); return v == null || isNaN(v) ? null : v; };
+  c.items = c.items || [];
+  let it = c.items.find(i => i.id === S._item.id);
+  if (!it) { it = {id: 'it' + uid(), group: S._item.group}; c.items.push(it); }
+  Object.assign(it, {name, planned: n('it-planned'), openingPaid: n('it-open') || 0});
+  if (it.group !== 'bills') Object.assign(it, {qty: n('it-qty'), bought: n('it-bought') || 0});
+  save(); closeSheet(); render(); toast('Saved');
+}
+
+// ---------- backup / restore ----------
+function download(name, text, type) {
+  try { const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], {type})); a.download = name; document.body.appendChild(a); a.click(); setTimeout(() => { URL.revokeObjectURL(a.href); a.remove(); }, 2000); }
+  catch { openSheet('Copy your file', `<textarea readonly style="width:100%;height:240px">${esc(text)}</textarea>`); }
+}
+function openRestore() {
+  openSheet('Restore from backup', `<p class="muted" style="margin-top:0">Pick a Spend Log backup file (.json), or paste its text.</p>
+    <label class="btn dark block" for="rs-file">Choose backup file</label><input id="rs-file" type="file" accept=".json,application/json,text/plain" hidden>
+    <textarea id="rs-text" placeholder="…or paste the backup text here" style="width:100%;height:110px;margin-top:10px;border-radius:12px;border:1px solid var(--line);background:var(--surface);color:var(--ink);padding:10px;font-size:13px"></textarea>
+    <p class="muted" style="font-size:13px">Restoring replaces what’s on this device with the backup.</p><div id="rs-out"></div>`, `<button class="btn primary" data-act="dorestore">Restore</button>`);
+  $('#rs-file').addEventListener('change', async e => { const f = e.target.files[0]; if (f) $('#rs-text').value = await f.text(); });
+}
+function doRestore() {
+  let b; try { b = JSON.parse($('#rs-text').value); } catch { $('#rs-out').innerHTML = '<div class="banner warn">That isn’t a valid backup file.</div>'; return; }
+  if (!b || b.app !== 'spend-log' || !Array.isArray(b.cycles) || !Array.isArray(b.entries)) { $('#rs-out').innerHTML = '<div class="banner warn">That file isn’t a Spend Log backup.</div>'; return; }
+  S.data = {cycles: b.cycles, entries: b.entries, settings: b.settings || {currency:'EGP'}};
+  ensureCurrent(); save(); closeSheet(); S.tab = 'today'; render(); toast(`Restored ${b.entries.length} expenses and ${b.cycles.length} cycles`);
+}
+function exportCsv() {
+  const q = v => { const s = String(v ?? ''); return /[",\n]/.test(s) ? '"' + s.replace(/"/g,'""') + '"' : s; };
+  const rows = [['Date','Wallet','Amount','Note','Home item','Sum']].concat([...S.data.entries].sort((a,b)=>a.date.localeCompare(b.date)).map(e => [e.date, WL[e.wallet]?.label || e.wallet, e.amount, e.note || '', e.itemId ? itemName(e.itemId) : '', e.expr || '']));
+  download(`spend-log-${todayKey()}.csv`, rows.map(r => r.map(q).join(',')).join('\n'), 'text/csv');
+}
+
+// ---------- events ----------
+document.addEventListener('click', e => {
+  const el = e.target.closest('[data-act]'); if (!el) return;
+  const a = el.dataset.act, v = el.dataset.v;
+  if (a === 'scrim') { if (e.target === el) closeSheet(); return; }
+  switch (a) {
+    case 'tab': S.tab = v; closeSheet(); render(); scrollTo(0,0); break;
+    case 'close': closeSheet(); break;
+    case 'add': openEntry(null, v); break;
+    case 'edit': { const en = S.data.entries.find(x => x.id === v); if (en) openEntry(en); break; }
+    case 'fsign': S._form.refund = v === '1'; syncForm(); break;
+    case 'fwallet': S._form.wallet = v; if (v !== 'home') S._form.itemId = null; syncForm(); break;
+    case 'fitem': S._form.itemId = v || null; syncForm(); break;
+    case 'fnote': $('#en-note').value = v; break;
+    case 'fdate': $('#en-date').value = addDays(todayKey(), +v); syncForm(); break;
+    case 'saveentry': saveEntry(); break;
+    case 'delentry': { const id = S._form.id, old = S.data.entries.find(x => x.id === id); S.data.entries = S.data.entries.filter(x => x.id !== id); save(); closeSheet(); render();
+      toast('Expense deleted', {label:'Undo', fn: () => { S.data.entries.push(old); save(); render(); }}); break; }
+    case 'toastact': S._toastAct?.(); $('#toast-root').innerHTML = ''; break;
+    case 'hcycle': S.histCycle = v; render(); break;
+    case 'hwallet': S.histWallet = v; render(); break;
+    case 'newitem': openItem(null, v); break;
+    case 'edititem': { const c = cycleFor(todayKey()) || sortedCycles().at(-1); const it = (c.items||[]).find(i => i.id === v); if (it) openItem(it); break; }
+    case 'saveitem': saveItem(); break;
+    case 'delitem': { const c = S.data.cycles.find(x => x.id === S._item.cycle); c.items = c.items.filter(i => i.id !== S._item.id); save(); closeSheet(); render(); toast('Removed'); break; }
+    case 'fund': { const c = cycleFor(todayKey()) || sortedCycles().at(-1);
+      openSheet('Bills fund', `<label class="f">Money set aside for bills this cycle<input id="fund-v" inputmode="decimal" value="${esc(c.billsFund || '')}"></label>`, `<button class="btn primary" data-act="savefund">Save</button>`); break; }
+    case 'savefund': { const c = cycleFor(todayKey()) || sortedCycles().at(-1); const val = calc($('#fund-v').value); c.billsFund = isNaN(val) || val == null ? 0 : val; save(); closeSheet(); render(); break; }
+    case 'newcycle': {
+      if (el.dataset.confirm !== '1') { el.dataset.confirm = '1'; el.textContent = 'Tap again to confirm'; el.classList.add('danger'); break; }
+      const t = todayKey(), c = cycleFor(t); if (!c) break;
+      if (c.start === t) { toast('This cycle already starts today.'); break; }
+      const len = daysBetween(c.start, c.end); c.end = addDays(t, -1);
+      const n = nextCycleFrom(c); n.end = addDays(t, len);
+      S.data.cycles.push(n); save(); render(); toast(`New cycle ${fmtShort(n.start)} – ${fmtShort(n.end)}`); break; }
+    case 'backup': download(`spend-log-backup-${todayKey()}.json`, JSON.stringify({app:'spend-log', version:1, exportedAt:new Date().toISOString(), ...S.data}), 'application/json'); break;
+    case 'restore': openRestore(); break;
+    case 'dorestore': doRestore(); break;
+    case 'csv': exportCsv(); break;
+  }
+});
+document.addEventListener('input', e => {
+  const id = e.target.dataset?.calc; if (!id) return;
+  const v = calc(e.target.value), out = document.getElementById(id);
+  if (out) out.textContent = isExpr(e.target.value) ? (isNaN(v) || v == null ? 'check the sum' : '= ' + money(v)) : '';
+});
+document.addEventListener('change', e => { if (e.target.id === 'en-date') syncForm(); });
+document.addEventListener('submit', e => {
+  e.preventDefault();
+  if (e.target.id === 'cycle-form') {
+    const c = cycleFor(todayKey()) || sortedCycles().at(-1);
+    const st = $('#cy-start').value, en = $('#cy-end').value;
+    if (!st || !en || en < st) { toast('Check the cycle dates.'); return; }
+    const clash = S.data.cycles.find(x => x !== c && x.start <= en && x.end >= st);
+    if (clash) { toast(`Those dates overlap the ${fmtShort(clash.start)} cycle.`); return; }
+    for (const w of WALLETS) { const raw = $('#cy-' + w.k).value.trim(), v = calc(raw); if (raw && (v == null || isNaN(v))) { toast(`Check the ${w.label} budget.`); return; } c.budgets[w.k] = {expr: raw, value: v || 0}; }
+    const oldId = c.id; c.start = st; c.end = en; c.id = st; if (S.histCycle === oldId) S.histCycle = st;
+    save(); render(); toast('Budgets saved');
+  }
+  if (e.target.id === 'setup-form') {
+    const st = $('#su-start').value, en = $('#su-end').value; if (!st || !en || en < st) { toast('Check the dates.'); return; }
+    const budgets = {}; for (const w of WALLETS) { const raw = $('#su-' + w.k).value.trim(), v = calc(raw); budgets[w.k] = {expr: raw, value: isNaN(v) || v == null ? 0 : v}; }
+    S.data.cycles.push({id: st, start: st, end: en, budgets, billsFund: 0, items: []}); ensureCurrent(); save(); render();
+  }
+  if (e.target.id === 'item-form') saveItem();
+});
+document.addEventListener('keydown', e => { if (e.key === 'Escape') closeSheet(); if (e.key === 'Enter' && e.target.id === 'en-amt') { e.preventDefault(); saveEntry(); } });
+document.addEventListener('visibilitychange', () => { if (!document.hidden && S.data.cycles.length) { ensureCurrent(); render(); } });
+
+load(); ensureCurrent(); render();
+})();
+</script>
+</body>
+</html>
